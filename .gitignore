@@ -1,0 +1,29 @@
+# Entorno virtual: es de Windows y pesa 11 MB, se recrea con requirements.txt
+.venv/
+venv/
+env/
+
+# Caché de Python
+__pycache__/
+*.py[cod]
+
+# Secretos: NUNCA subir
+.env
+
+# Salidas generadas y base de datos local
+output/
+*.db
+*.sqlite
+*.sqlite3
+
+# Documentos generados
+*.docx
+
+# Sistema operativo / OneDrive
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# CV personal: contiene nombre, correo y teléfono reales.
+# Se versiona solo la plantilla de ejemplo.
+templates/cv_base.json

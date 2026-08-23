@@ -1,0 +1,69 @@
+{
+  "personal": {
+    "name": "Tu Nombre Completo",
+    "email": "tu@correo.com",
+    "phone": "+57 300 000 0000",
+    "location": "Tu Ciudad, País",
+    "linkedin": "linkedin.com/in/tu-perfil",
+    "github": "github.com/tu-usuario"
+  },
+  "summary": "Dos o tres líneas describiendo tu perfil profesional, tu especialidad y qué tipo de rol buscas.",
+  "experience": [
+    {
+      "title": "Cargo",
+      "company": "Empresa",
+      "location": "Ciudad, País",
+      "start_date": "Ene 2024",
+      "end_date": "Actualidad",
+      "achievements": [
+        "Logro concreto con una cifra que lo respalde",
+        "Otro logro, empezando con un verbo en pasado"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "degree": "Tu Programa",
+      "institution": "Tu Universidad",
+      "location": "Ciudad, País",
+      "start_date": "2020",
+      "end_date": "2025",
+      "relevant_courses": [
+        "Materia 1",
+        "Materia 2"
+      ]
+    }
+  ],
+  "skills": {
+    "technical": [
+      "Python",
+      "SQL",
+      "Docker"
+    ],
+    "soft": [
+      "Trabajo en equipo",
+      "Comunicación"
+    ],
+    "languages": [
+      "Español (nativo)",
+      "Inglés (B2)"
+    ],
+    "tools": [
+      "Git",
+      "VS Code"
+    ]
+  },
+  "projects": [
+    {
+      "name": "Nombre del proyecto",
+      "description": "Qué resuelve y con qué resultado.",
+      "technologies": [
+        "Python",
+        "API"
+      ]
+    }
+  ],
+  "certifications": [
+    "Tus certificaciones aquí"
+  ]
+}
