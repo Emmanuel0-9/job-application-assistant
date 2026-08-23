@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from docx import Document
 from docx.shared import Pt, RGBColor, Cm
@@ -42,6 +43,20 @@ def _section(doc, title: str):
     _rule(para)
     para.paragraph_format.space_before = Pt(10)
     para.paragraph_format.space_after  = Pt(4)
+
+
+def _nombre_archivo_seguro(nombre: str) -> str:
+    """Reduce un nombre de archivo a algo que no pueda escapar de OUTPUT_DIR.
+
+    El nombre se arma con datos que vienen de afuera (la empresa de la oferta,
+    procesada por la IA). Sin esto, una empresa llamada "../../.." haria que
+    doc.save() escribiera fuera de la carpeta output/. Se valida aqui, en la
+    frontera: se descarta todo lo que no sea una letra, numero, guion o punto.
+    """
+    base = Path(nombre).name                     # descarta cualquier ruta: ../ , \ , /
+    base = re.sub(r"[^A-Za-z0-9._-]", "_", base)  # solo caracteres seguros
+    base = base.lstrip(".")                       # sin punto inicial (archivos ocultos)
+    return base or "cv.docx"
 
 
 def generate_cv_docx(cv: CV, filename: str) -> Path:
@@ -159,8 +174,11 @@ def generate_cv_docx(cv: CV, filename: str) -> Path:
             p = doc.add_paragraph()
             _run(p, f"• {cert}", size=10)
 
-    # Guardar
+    # Guardar — el filename se sanea porque proviene de datos externos
     OUTPUT_DIR.mkdir(exist_ok=True)
-    out = OUTPUT_DIR / filename
+    out = OUTPUT_DIR / _nombre_archivo_seguro(filename)
+    # Defensa en profundidad: aunque el saneo fallara, confirmamos que no escapa
+    if OUTPUT_DIR.resolve() not in out.resolve().parents:
+        raise ValueError(f"Ruta de salida insegura: {out}")
     doc.save(out)
     return out

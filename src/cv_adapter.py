@@ -1,6 +1,6 @@
-import json
 from anthropic import Anthropic
 from config import ANTHROPIC_API_KEY, CLAUDE_MODEL
+from src.llm_parse import parsear_modelo
 from src.models import CV, JobAnalysis
 
 client = Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -46,11 +46,5 @@ def adapt_cv(base_cv: CV, analysis: JobAnalysis) -> CV:
         }]
     )
 
-    raw = response.content[0].text.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-        raw = raw.strip("` \n")
-
-    return CV(**json.loads(raw))
+    raw = response.content[0].text
+    return parsear_modelo(raw, CV)
