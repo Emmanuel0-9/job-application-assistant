@@ -50,7 +50,7 @@ src/
   llm_parse.py       Convierte la respuesta del modelo en un objeto validado
   scraper.py         11 scrapers con reintentos, pausas y selectores de respaldo
 templates/           CV base en JSON
-tests/               75 pruebas con pytest (parser del LLM, esquemas, base de datos, seguridad)
+tests/               116 pruebas con pytest (scrapers, parser del LLM, esquemas, BD, seguridad)
 ```
 
 **Decisiones de diseño**
@@ -91,10 +91,12 @@ pip install pytest
 python -m pytest tests/ -v
 ```
 
-75 pruebas sobre las cuatro partes que más duelen si fallan:
+116 pruebas sobre las partes que más duelen si fallan. Ninguna toca la red:
+se le pasa a cada scraper lo que el portal habría devuelto.
 
 | Archivo | Qué cubre |
 |---|---|
+| `test_scraper.py` | Portales que devuelven un error donde iba una lista, campos en `null`, salarios como "negociable", y que el respaldo de selectores CSS respalde de verdad |
 | `test_llm_parse.py` | Las formas en que un modelo se sale del formato: cercos ```` ```json ````, etiquetas en mayúsculas, preámbulos antes del bloque, cercos sin cerrar, JSON que no cumple el esquema |
 | `test_models.py` | Que la validación sea real y no solo de tipos: un `match_score` de 150 tiene el tipo correcto y es imposible |
 | `test_tracker.py` | SQLite: promedios, estados válidos, cola, y que un duplicado no se confunda con un error real |

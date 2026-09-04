@@ -78,12 +78,45 @@ def _pause():
     time.sleep(random.uniform(1.5, 3.2))
 
 
+def _entero_o_none(valor) -> Optional[int]:
+    """Convierte a entero lo que devuelva una API, sin reventar por basura.
+
+    Los portales mandan el salario como número, como texto ("80000", "80,000")
+    o como palabra ("negociable"). Un int() directo tumbaba la corrida entera
+    por una sola oferta mal formada.
+    """
+    if valor is None:
+        return None
+    try:
+        return int(float(str(valor).replace(",", "").replace("$", "").strip()))
+    except (TypeError, ValueError):
+        return None
+
+
 def _first(el, *selectors, attr: str = None):
-    """Prueba una lista de selectores CSS y devuelve el primer match."""
+    """Prueba una lista de selectores CSS y devuelve el primer valor NO VACÍO.
+
+    Sigue con el siguiente selector cuando uno coincide pero no aporta nada: el
+    elemento existe pero le falta el atributo, o su texto está en blanco. Ese es
+    justamente el caso que vuelve útiles a los respaldos —un portal cambia su
+    HTML y el selector viejo todavía coincide con algo vacío—, y antes se
+    devolvía "" sin llegar a probarlos, perdiendo la URL o el título.
+    """
     for sel in selectors:
         found = el.select_one(sel)
-        if found:
-            return found.get(attr, "").strip() if attr else _clean(found.get_text())
+        if not found:
+            continue
+        if attr:
+            valor = found.get(attr, "")
+            # BeautifulSoup devuelve una lista en atributos multivaluados (class,
+            # rel...); sin esto, .strip() reventaba con AttributeError.
+            if isinstance(valor, (list, tuple)):
+                valor = " ".join(valor)
+            valor = valor.strip()
+        else:
+            valor = _clean(found.get_text())
+        if valor:
+            return valor
     return ""
 
 
@@ -395,27 +428,38 @@ def scrape_torre_co(
         logger.warning(f"  Torre.co: {e}")
         return []
 
+    # Si la API responde algo que no es un objeto, .get() lanzaría AttributeError
+    # y se caería toda la búsqueda, no solo Torre.
+    if not isinstance(data, dict):
+        logger.warning(f"  Torre.co: respuesta inesperada ({type(data).__name__})")
+        return []
+
     results = []
-    for item in data.get("results", [])[:max_results]:
-        opp  = item.get("opportunity", {})
-        org  = (opp.get("organizations") or [{}])[0]
+    for item in (data.get("results") or [])[:max_results]:
+        if not isinstance(item, dict):
+            continue
+        opp  = item.get("opportunity") or {}
+        org  = (opp.get("organizations") or [{}])[0] or {}
         comp = opp.get("compensation") or {}
 
+        # Los montos pueden venir como texto o como palabra; int() directo reventaba.
+        mn = _entero_o_none(comp.get("minAmount"))
+        mx = _entero_o_none(comp.get("maxAmount"))
         salary = None
-        if comp.get("minAmount"):
-            cur  = comp.get("currency", "USD")
-            mn   = int(comp["minAmount"])
-            mx   = int(comp.get("maxAmount", 0))
+        if mn:
+            cur = comp.get("currency") or "USD"
             salary = f"{cur} {mn:,}–{mx:,}/año" if mx else f"{cur} {mn:,}+/año"
 
-        opp_id = opp.get("id", "")
+        opp_id = opp.get("id") or ""
+        # `details` puede venir con valor None, y entonces .get() encadenado falla.
+        detalles = opp.get("details") or {}
         results.append(JobListing(
-            title=opp.get("objective", "Sin título"),
-            company=org.get("name", "Empresa no especificada"),
+            title=_clean(opp.get("objective")) or "Sin título",
+            company=_clean(org.get("name")) or "Empresa no especificada",
             location="100% Remoto · LATAM",
             platform="Torre.co",
             url=f"https://torre.co/jobs/{opp_id}",
-            description=_clean(opp.get("details", {}).get("description", ""))[:300],
+            description=_clean(detalles.get("description") if isinstance(detalles, dict) else "")[:300],
             salary=salary,
         ))
     logger.info(f"  Torre.co: {len(results)} encontradas")
@@ -450,23 +494,34 @@ def scrape_remoteok(
         logger.warning(f"  RemoteOK: {e}")
         return []
 
+    # La API devuelve una lista con metadatos en el índice 0. Cuando algo va mal
+    # (límite de peticiones, mantenimiento) responde un dict, y cortarlo con
+    # data[1:...] lanzaba KeyError y tumbaba la búsqueda entera, no solo RemoteOK.
+    if not isinstance(data, list):
+        logger.warning(f"  RemoteOK: respuesta inesperada ({type(data).__name__})")
+        return []
+
     results = []
     for job in data[1:max_results + 1]:   # data[0] es metadatos
         if not isinstance(job, dict):
             continue
+        sal_min = _entero_o_none(job.get("salary_min"))
+        sal_max = _entero_o_none(job.get("salary_max"))
         salary = None
-        if job.get("salary_min"):
-            sal_min = int(job["salary_min"])
-            sal_max = int(job.get("salary_max") or 0)
-            salary = f"USD {sal_min:,}–{sal_max:,}/año" if sal_max else f"USD {sal_min:,}+/año"
+        if sal_min:
+            salary = (f"USD {sal_min:,}–{sal_max:,}/año" if sal_max
+                      else f"USD {sal_min:,}+/año")
 
-        raw_desc = job.get("description", "")
+        raw_desc = job.get("description") or ""
         desc_clean = _clean(BeautifulSoup(raw_desc, "lxml").get_text())[:300]
         job_url = job.get("url") or f"https://remoteok.com/jobs/{job.get('id', '')}"
 
         results.append(JobListing(
-            title=job.get("position", "Sin título"),
-            company=job.get("company", "Empresa no especificada"),
+            # `or` y no el default de .get(): la clave puede venir con valor None,
+            # y .get(k, default) solo usa el default si la clave NO existe. Un
+            # title en None choca contra el NOT NULL de la tabla.
+            title=_clean(job.get("position")) or "Sin título",
+            company=_clean(job.get("company")) or "Empresa no especificada",
             location="100% Remoto",
             platform="RemoteOK",
             url=job_url,
@@ -657,17 +712,26 @@ def scrape_remotive(
         logger.warning(f"  Remotive: {e}")
         return []
 
+    # La clave "jobs" puede llegar como null; cortar None revienta aquí afuera
+    # del try y se llevaría toda la búsqueda por delante.
+    if not isinstance(jobs, list):
+        logger.warning(f"  Remotive: respuesta inesperada ({type(jobs).__name__})")
+        return []
+
     results = []
     for job in jobs[:max_results]:
-        raw_desc = job.get("description", "")
+        if not isinstance(job, dict):
+            continue
+        raw_desc = job.get("description") or ""
         desc = _clean(BeautifulSoup(raw_desc, "lxml").get_text())[:300]
         salary = (job.get("salary") or "").strip() or None
+        titulo = _clean(job.get("title")) or "Sin título"
         results.append(JobListing(
-            title=job.get("title", ""),
-            company=job.get("company_name", "Empresa no especificada"),
+            title=titulo,
+            company=_clean(job.get("company_name")) or "Empresa no especificada",
             location="100% Remote",
             platform="Remotive",
-            url=job.get("url", ""),
+            url=job.get("url") or "",
             description=desc,
             salary=salary,
         ))
