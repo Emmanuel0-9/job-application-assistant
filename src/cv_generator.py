@@ -45,6 +45,16 @@ def _section(doc, title: str):
     para.paragraph_format.space_after  = Pt(4)
 
 
+# Nombres de dispositivo de Windows. Escribir en ellos no crea un archivo: habla
+# con el dispositivo. Se comprobo en Windows 11 que "NUL" a secas se acepta y deja
+# el archivo en 0 bytes — el CV se perderia en silencio.
+_RESERVADOS_WINDOWS = {
+    "CON", "PRN", "AUX", "NUL",
+    *(f"COM{i}" for i in range(1, 10)),
+    *(f"LPT{i}" for i in range(1, 10)),
+}
+
+
 def _nombre_archivo_seguro(nombre: str) -> str:
     """Reduce un nombre de archivo a algo que no pueda escapar de OUTPUT_DIR.
 
@@ -56,7 +66,12 @@ def _nombre_archivo_seguro(nombre: str) -> str:
     base = Path(nombre).name                     # descarta cualquier ruta: ../ , \ , /
     base = re.sub(r"[^A-Za-z0-9._-]", "_", base)  # solo caracteres seguros
     base = base.lstrip(".")                       # sin punto inicial (archivos ocultos)
-    return base or "cv.docx"
+    if not base:
+        return "cv.docx"
+    # Si la raiz es un dispositivo de Windows, se le antepone algo para desactivarlo.
+    if base.split(".")[0].upper() in _RESERVADOS_WINDOWS:
+        base = f"cv_{base}"
+    return base
 
 
 def generate_cv_docx(cv: CV, filename: str) -> Path:

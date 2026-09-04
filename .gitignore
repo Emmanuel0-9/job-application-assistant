@@ -6,6 +6,7 @@ env/
 # Caché de Python
 __pycache__/
 *.py[cod]
+.pytest_cache/
 
 # Secretos: NUNCA subir
 .env

@@ -47,8 +47,10 @@ src/
   cover_letter.py    Claude API → carta personalizada
   cv_generator.py    python-docx → documento compatible con ATS
   tracker.py         SQLite: postulaciones + cola, con deduplicación
+  llm_parse.py       Convierte la respuesta del modelo en un objeto validado
   scraper.py         11 scrapers con reintentos, pausas y selectores de respaldo
 templates/           CV base en JSON
+tests/               56 pruebas con pytest (parser del LLM, base de datos, seguridad)
 ```
 
 **Decisiones de diseño**
@@ -82,9 +84,28 @@ python main.py setup          # crea templates/cv_base.json y la base de datos
 Después hay que editar `templates/cv_base.json` con los datos reales.
 Ese archivo está en `.gitignore` porque contiene información personal.
 
+## Pruebas
+
+```bash
+pip install pytest
+python -m pytest tests/ -v
+```
+
+56 pruebas sobre las tres partes que más duelen si fallan:
+
+| Archivo | Qué cubre |
+|---|---|
+| `test_llm_parse.py` | Las formas en que un modelo se sale del formato: cercos ```` ```json ````, etiquetas en mayúsculas, preámbulos antes del bloque, cercos sin cerrar, JSON que no cumple el esquema |
+| `test_tracker.py` | SQLite: promedios, estados válidos, cola, y que un duplicado no se confunda con un error real |
+| `test_seguridad_nombres.py` | Adversariales: el nombre del `.docx` viene de datos externos, así que se intenta escapar de `output/` con `../`, rutas absolutas y nombres de dispositivo de Windows |
+
+Las pruebas de seguridad son adversariales a propósito: en vez de comprobar que el
+camino feliz funciona, intentan romperlo.
+
 ## Stack
 
 Python 3.13 · Typer · Rich · Pydantic · Anthropic SDK · BeautifulSoup · python-docx · SQLite
+Pruebas con pytest
 
 ## Estado
 

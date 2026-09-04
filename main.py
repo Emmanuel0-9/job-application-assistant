@@ -278,7 +278,9 @@ def stats():
 
     console.print(Panel(
         f"[bold]Total aplicaciones:[/bold] {s['total']}\n"
-        f"[bold]Match promedio:[/bold]    {s.get('avg_match_score') or 'N/A'}%",
+        # Igual que en tracker.get_stats: 0 es un promedio válido, no un "sin datos".
+        f"[bold]Match promedio:[/bold]    "
+        f"{'N/A' if s.get('avg_match_score') is None else s['avg_match_score']}%",
         title="📊 Estadísticas"
     ))
 
@@ -529,7 +531,7 @@ def buscar_colombia(
         help="Buscar solo en una: torre/remoteok/getonboard/indeed_co/computrabajo_co"
     ),
 ):
-    """🇨🇴  Búsqueda optimizada: 100%% remoto · accesible desde Colombia · LATAM.\n
+    """🇨🇴  Búsqueda optimizada: 100% remoto · accesible desde Colombia · LATAM.\n
     Sin argumento, busca automáticamente con todas las variantes de\n
     'analista de requerimientos' (español + inglés) en 5 plataformas."""
     tracker.init_db()

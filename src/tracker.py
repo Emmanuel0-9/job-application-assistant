@@ -1,4 +1,5 @@
 import sqlite3
+import sys
 from typing import List, Optional, Dict, Any
 from config import DB_PATH
 
@@ -151,7 +152,9 @@ def get_stats() -> Dict[str, Any]:
         "total":          total,
         "by_status":      by_status,
         "by_platform":    by_platform,
-        "avg_match_score": round(avg_match, 1) if avg_match else None,
+        # Ojo: hay que comparar contra None, no usar el valor como booleano.
+        # Un promedio de 0.0 es un dato válido y `if avg_match` lo descartaría.
+        "avg_match_score": round(avg_match, 1) if avg_match is not None else None,
     }
 
 
@@ -168,7 +171,12 @@ def save_analysis(application_id: int, offer_text: str, analysis_json: str) -> N
 # ── Cola de ofertas ───────────────────────────────────────────────────────────
 
 def save_job_to_queue(job, match_score: Optional[int] = None) -> int:
-    """Guarda una oferta en la cola. Retorna ID o -1 si es duplicado."""
+    """Guarda una oferta en la cola.
+
+    Devuelve el id nuevo, -1 si ya estaba (duplicado) o -2 si hubo un error real.
+    Un duplicado es normal y silencioso; un error real se avisa por stderr, porque
+    antes ambos devolvían -1 y un fallo de verdad pasaba desapercibido.
+    """
     conn = sqlite3.connect(DB_PATH)
     try:
         cur = conn.execute("""
@@ -180,8 +188,12 @@ def save_job_to_queue(job, match_score: Optional[int] = None) -> int:
         new_id = cur.lastrowid if cur.rowcount > 0 else -1
         conn.commit()
         return new_id
-    except Exception:
-        return -1
+    except Exception as e:
+        # No se relanza para no tumbar una búsqueda larga por una oferta mala,
+        # pero el fallo tiene que verse.
+        print(f"  aviso: no se pudo guardar la oferta: {type(e).__name__}: {e}",
+              file=sys.stderr)
+        return -2
     finally:
         conn.close()
 

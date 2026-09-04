@@ -7,6 +7,7 @@ crudo y se perdía toda la corrida. Esto lo centraliza y falla de forma clara.
 """
 
 import json
+import re
 from typing import Type, TypeVar
 from pydantic import BaseModel, ValidationError
 
@@ -17,16 +18,36 @@ class RespuestaIAInvalida(Exception):
     """La IA no devolvió un JSON válido o no cumplió el esquema esperado."""
 
 
+# Un bloque ```lenguaje ... ``` en cualquier parte del texto. La etiqueta del
+# lenguaje es opcional y no distingue mayúsculas (```json, ```JSON, ``` a secas).
+_BLOQUE_CERCADO = re.compile(r"```[ \t]*[A-Za-z0-9_+-]*[ \t]*\r?\n?(.*?)```", re.DOTALL)
+_APERTURA_SUELTA = re.compile(r"^```[ \t]*[A-Za-z0-9_+-]*[ \t]*\r?\n?")
+
+
 def _limpiar_cercos(texto: str) -> str:
-    """Quita los ```json ... ``` que el modelo a veces agrega de todas formas."""
+    """Extrae el JSON de la respuesta del modelo.
+
+    Aguanta las tres formas en que un modelo se sale del formato pedido:
+      1. lo envuelve en ```json ... ``` (con la etiqueta en cualquier caja)
+      2. escribe un preámbulo antes del bloque ("Aquí tienes el análisis:")
+      3. abre el cerco y no lo cierra
+    Si no hay cerco, devuelve el texto tal cual para que json.loads lo intente.
+    """
     t = texto.strip()
+
+    bloque = _BLOQUE_CERCADO.search(t)
+    if bloque:
+        return bloque.group(1).strip()
+
     if t.startswith("```"):
-        partes = t.split("```")
-        if len(partes) >= 2:
-            t = partes[1]
-        if t.startswith("json"):
-            t = t[4:]
-        t = t.strip("` \n")
+        return _APERTURA_SUELTA.sub("", t).strip("` \n")
+
+    # Sin cerco pero con texto alrededor: nos quedamos con el objeto JSON.
+    if not t.startswith("{"):
+        inicio, fin = t.find("{"), t.rfind("}")
+        if inicio != -1 and fin > inicio:
+            return t[inicio:fin + 1]
+
     return t
 
 
