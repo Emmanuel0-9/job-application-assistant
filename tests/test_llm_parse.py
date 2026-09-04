@@ -14,7 +14,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pytest
 from pydantic import BaseModel
 
-from src.llm_parse import RespuestaIAInvalida, _limpiar_cercos, parsear_modelo
+from src.llm_parse import (
+    FaltaApiKey, RespuestaIAInvalida, _limpiar_cercos,
+    crear_cliente, parsear_modelo, texto_de_respuesta,
+)
 
 
 class Analisis(BaseModel):
@@ -91,6 +94,67 @@ def test_el_error_incluye_una_muestra_del_texto():
     with pytest.raises(RespuestaIAInvalida) as exc:
         parsear_modelo("respuesta rarísima del modelo", Analisis)
     assert "rarísima" in str(exc.value)
+
+
+# ── texto_de_respuesta: no asumir la forma de la respuesta de la API ──────────
+
+class Bloque:
+    def __init__(self, texto=None, tipo="text"):
+        if texto is not None:
+            self.text = texto
+        self.type = tipo
+
+
+class Respuesta:
+    def __init__(self, bloques):
+        self.content = bloques
+
+
+def test_texto_de_respuesta_caso_normal():
+    assert texto_de_respuesta(Respuesta([Bloque("hola")])) == "hola"
+
+
+def test_texto_de_respuesta_junta_varios_bloques():
+    r = Respuesta([Bloque("primero"), Bloque("segundo")])
+    assert texto_de_respuesta(r) == "primero\nsegundo"
+
+
+def test_texto_de_respuesta_ignora_bloques_que_no_son_texto():
+    """Un modelo puede devolver un bloque de razonamiento antes del texto."""
+    r = Respuesta([Bloque(None, tipo="thinking"), Bloque("la respuesta")])
+    assert texto_de_respuesta(r) == "la respuesta"
+
+
+@pytest.mark.parametrize("respuesta, caso", [
+    (Respuesta([]),                       "sin bloques (antes: IndexError)"),
+    (Respuesta(None),                     "content en None"),
+    (Respuesta([Bloque(None, "tool_use")]), "solo un bloque sin texto"),
+    (Respuesta([Bloque("")]),             "bloque de texto vacio"),
+])
+def test_texto_de_respuesta_falla_claro_en_vez_de_reventar(respuesta, caso):
+    """Regresión: response.content[0].text daba IndexError o AttributeError."""
+    with pytest.raises(RespuestaIAInvalida):
+        texto_de_respuesta(respuesta)
+    assert caso  # documenta el caso en el nombre del parámetro
+
+
+# ── crear_cliente: avisar qué falta, no reventar con un error del SDK ─────────
+
+def test_crear_cliente_sin_clave_explica_que_hacer(monkeypatch):
+    import config
+    monkeypatch.setattr(config, "ANTHROPIC_API_KEY", None)
+    with pytest.raises(FaltaApiKey) as exc:
+        crear_cliente()
+    mensaje = str(exc.value)
+    assert "ANTHROPIC_API_KEY" in mensaje
+    assert ".env" in mensaje, "el mensaje debe decir cómo arreglarlo"
+
+
+def test_crear_cliente_con_clave_devuelve_un_cliente(monkeypatch):
+    import config
+    monkeypatch.setattr(config, "ANTHROPIC_API_KEY", "sk-ant-clave-de-prueba")
+    cliente = crear_cliente()
+    assert hasattr(cliente, "messages"), "debe ser un cliente de Anthropic utilizable"
 
 
 if __name__ == "__main__":

@@ -27,6 +27,7 @@ from src.analyzer import analyze_job_offer
 from src.cover_letter import generate_cover_letter
 from src.cv_adapter import adapt_cv
 from src.cv_generator import generate_cv_docx
+from src.llm_parse import FaltaApiKey, RespuestaIAInvalida
 from src.models import CV, JobAnalysis
 from src.scraper import (
     search_all, search_colombia_remote,
@@ -707,4 +708,27 @@ def _print_list(label: str, color: str, items: list):
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    cli()
+    # Los fallos previsibles se traducen a un mensaje entendible. Sin esto, a
+    # quien clonara el repo sin configurar la clave —o a quien le tocara una
+    # respuesta rara del modelo— le salía un traceback crudo.
+    try:
+        cli()
+    except FaltaApiKey as e:
+        rprint(f"\n[red]❌  {e}[/red]")
+        sys.exit(1)
+    except RespuestaIAInvalida as e:
+        rprint("\n[red]❌  La IA no devolvió un resultado usable.[/red]")
+        rprint(f"[dim]{e}[/dim]")
+        rprint("[dim]Suele pasar con ofertas muy largas o cortadas. Vuelve a intentar.[/dim]")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        rprint("\n[yellow]Cancelado.[/yellow]")
+        sys.exit(130)
+    except Exception as e:
+        # Errores del SDK de Anthropic (clave inválida, límite de peticiones).
+        # Se reconocen por su módulo para no tener que importar el SDK aquí.
+        if type(e).__module__.split(".")[0] == "anthropic":
+            rprint(f"\n[red]❌  Error de la API de Anthropic: {type(e).__name__}[/red]")
+            rprint(f"[dim]{e}[/dim]")
+            sys.exit(1)
+        raise

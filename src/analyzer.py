@@ -1,9 +1,6 @@
-from anthropic import Anthropic
-from config import ANTHROPIC_API_KEY, CLAUDE_MODEL
-from src.llm_parse import parsear_modelo
+from config import CLAUDE_MODEL
+from src.llm_parse import crear_cliente, parsear_modelo, texto_de_respuesta
 from src.models import CV, JobAnalysis
-
-client = Anthropic(api_key=ANTHROPIC_API_KEY)
 
 _PROMPT = """Analiza la siguiente oferta de trabajo y extrae información estructurada.
 Responde ÚNICAMENTE con JSON válido (sin backticks ni texto adicional), con esta estructura exacta:
@@ -54,6 +51,7 @@ def analyze_job_offer(offer_text: str, cv: CV) -> JobAnalysis:
         f"Tecnologías en proyectos: {', '.join(t for p in cv.projects for t in p.technologies)}"
     )
 
+    client = crear_cliente()
     response = client.messages.create(
         model=CLAUDE_MODEL,
         max_tokens=2000,
@@ -63,5 +61,5 @@ def analyze_job_offer(offer_text: str, cv: CV) -> JobAnalysis:
         }]
     )
 
-    raw = response.content[0].text
+    raw = texto_de_respuesta(response)
     return parsear_modelo(raw, JobAnalysis)

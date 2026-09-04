@@ -50,7 +50,7 @@ src/
   llm_parse.py       Convierte la respuesta del modelo en un objeto validado
   scraper.py         11 scrapers con reintentos, pausas y selectores de respaldo
 templates/           CV base en JSON
-tests/               116 pruebas con pytest (scrapers, parser del LLM, esquemas, BD, seguridad)
+tests/               125 pruebas con pytest (scrapers, parser del LLM, esquemas, BD, seguridad)
 ```
 
 **Decisiones de diseño**
@@ -91,7 +91,7 @@ pip install pytest
 python -m pytest tests/ -v
 ```
 
-116 pruebas sobre las partes que más duelen si fallan. Ninguna toca la red:
+125 pruebas sobre las partes que más duelen si fallan. Ninguna toca la red:
 se le pasa a cada scraper lo que el portal habría devuelto.
 
 | Archivo | Qué cubre |

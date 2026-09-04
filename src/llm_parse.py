@@ -18,6 +18,51 @@ class RespuestaIAInvalida(Exception):
     """La IA no devolvió un JSON válido o no cumplió el esquema esperado."""
 
 
+class FaltaApiKey(RuntimeError):
+    """No hay ANTHROPIC_API_KEY configurada."""
+
+    def __init__(self):
+        super().__init__(
+            "Falta ANTHROPIC_API_KEY.\n"
+            "  1. Copia el ejemplo:  cp .env.example .env\n"
+            "  2. Abre .env y pon tu clave de https://console.anthropic.com"
+        )
+
+
+def crear_cliente():
+    """Crea el cliente de Anthropic, avisando claro si falta la clave.
+
+    Antes cada módulo lo creaba al importarse: quien clonara el repo sin
+    configurar el .env se encontraba con un error del SDK en vez de saber qué
+    le faltaba. Se crea al usarlo, no al importar.
+    """
+    from anthropic import Anthropic  # import perezoso: importar el módulo no debe costar
+    from config import ANTHROPIC_API_KEY
+
+    if not ANTHROPIC_API_KEY:
+        raise FaltaApiKey()
+    return Anthropic(api_key=ANTHROPIC_API_KEY)
+
+
+def texto_de_respuesta(response) -> str:
+    """Extrae el texto de una respuesta de la API sin asumir su forma.
+
+    `response.content[0].text` revienta si la respuesta viene sin bloques
+    (IndexError) o si el primero no es de texto (AttributeError). Aquí se
+    recorren todos y se juntan los que sí traen texto.
+    """
+    bloques = getattr(response, "content", None) or []
+    partes = [
+        b.text for b in bloques
+        if getattr(b, "type", None) == "text" and getattr(b, "text", None)
+    ]
+    if not partes:   # por si un modelo no etiqueta el tipo
+        partes = [b.text for b in bloques if getattr(b, "text", None)]
+    if not partes:
+        raise RespuestaIAInvalida("La API devolvió una respuesta sin texto.")
+    return "\n".join(partes)
+
+
 # Un bloque ```lenguaje ... ``` en cualquier parte del texto. La etiqueta del
 # lenguaje es opcional y no distingue mayúsculas (```json, ```JSON, ``` a secas).
 _BLOQUE_CERCADO = re.compile(r"```[ \t]*[A-Za-z0-9_+-]*[ \t]*\r?\n?(.*?)```", re.DOTALL)

@@ -1,8 +1,6 @@
-from anthropic import Anthropic
-from config import ANTHROPIC_API_KEY, CLAUDE_MODEL
+from config import CLAUDE_MODEL
+from src.llm_parse import crear_cliente, texto_de_respuesta
 from src.models import CV, JobAnalysis
-
-client = Anthropic(api_key=ANTHROPIC_API_KEY)
 
 _PROMPT = """Eres un experto en búsqueda de empleo. Escribe una carta de presentación profesional en español.
 
@@ -41,6 +39,7 @@ def generate_cover_letter(cv: CV, analysis: JobAnalysis) -> str:
     )
     education_str = f"{cv.education[0].degree} – {cv.education[0].institution}" if cv.education else ""
 
+    client = crear_cliente()
     response = client.messages.create(
         model=CLAUDE_MODEL,
         max_tokens=1500,
@@ -60,4 +59,4 @@ def generate_cover_letter(cv: CV, analysis: JobAnalysis) -> str:
         }]
     )
 
-    return response.content[0].text.strip()
+    return texto_de_respuesta(response).strip()

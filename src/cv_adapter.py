@@ -1,9 +1,6 @@
-from anthropic import Anthropic
-from config import ANTHROPIC_API_KEY, CLAUDE_MODEL
-from src.llm_parse import parsear_modelo
+from config import CLAUDE_MODEL
+from src.llm_parse import crear_cliente, parsear_modelo, texto_de_respuesta
 from src.models import CV, JobAnalysis
-
-client = Anthropic(api_key=ANTHROPIC_API_KEY)
 
 _PROMPT = """Eres un experto en redacción de CVs y optimización ATS.
 Adapta el CV JSON para maximizar el match con el cargo indicado.
@@ -30,6 +27,7 @@ REGLAS ESTRICTAS:
 
 def adapt_cv(base_cv: CV, analysis: JobAnalysis) -> CV:
     """Devuelve una versión del CV optimizada para el cargo analizado."""
+    client = crear_cliente()
     response = client.messages.create(
         model=CLAUDE_MODEL,
         max_tokens=4000,
@@ -46,5 +44,5 @@ def adapt_cv(base_cv: CV, analysis: JobAnalysis) -> CV:
         }]
     )
 
-    raw = response.content[0].text
+    raw = texto_de_respuesta(response)
     return parsear_modelo(raw, CV)
