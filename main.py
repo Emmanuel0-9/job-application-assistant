@@ -255,7 +255,8 @@ def listar(
 
     for a in apps:
         sc  = STATUS_COLOR.get(a["status"], "white")
-        mat = f"{a['match_score']}%" if a.get("match_score") else "-"
+        # Comparar contra None: un match de 0 es un dato real y debe verse "0%".
+        mat = "-" if a.get("match_score") is None else f"{a['match_score']}%"
         doc = ("✓CV " if a.get("cv_filename") else "") + ("✓Carta" if a.get("cover_letter") else "")
         t.add_row(
             str(a["id"]),

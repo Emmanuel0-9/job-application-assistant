@@ -50,7 +50,7 @@ src/
   llm_parse.py       Convierte la respuesta del modelo en un objeto validado
   scraper.py         11 scrapers con reintentos, pausas y selectores de respaldo
 templates/           CV base en JSON
-tests/               56 pruebas con pytest (parser del LLM, base de datos, seguridad)
+tests/               75 pruebas con pytest (parser del LLM, esquemas, base de datos, seguridad)
 ```
 
 **Decisiones de diseño**
@@ -91,11 +91,12 @@ pip install pytest
 python -m pytest tests/ -v
 ```
 
-56 pruebas sobre las tres partes que más duelen si fallan:
+75 pruebas sobre las cuatro partes que más duelen si fallan:
 
 | Archivo | Qué cubre |
 |---|---|
 | `test_llm_parse.py` | Las formas en que un modelo se sale del formato: cercos ```` ```json ````, etiquetas en mayúsculas, preámbulos antes del bloque, cercos sin cerrar, JSON que no cumple el esquema |
+| `test_models.py` | Que la validación sea real y no solo de tipos: un `match_score` de 150 tiene el tipo correcto y es imposible |
 | `test_tracker.py` | SQLite: promedios, estados válidos, cola, y que un duplicado no se confunda con un error real |
 | `test_seguridad_nombres.py` | Adversariales: el nombre del `.docx` viene de datos externos, así que se intenta escapar de `output/` con `../`, rutas absolutas y nombres de dispositivo de Windows |
 

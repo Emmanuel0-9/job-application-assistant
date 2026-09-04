@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PersonalInfo(BaseModel):
@@ -64,9 +64,14 @@ class JobAnalysis(BaseModel):
     preferred_skills: List[str]
     soft_skills: List[str]
     ats_keywords: List[str]
-    experience_level: str          # Junior | Mid | Senior
+    # Se deja como texto libre a propósito: solo se muestra, nunca entra en
+    # lógica. Exigir exactamente Junior|Mid|Senior tumbaría un análisis correcto
+    # solo porque el modelo escribió "Mid-level".
+    experience_level: str
     key_responsibilities: List[str]
     company_culture: Optional[str] = None
-    match_score: int               # 0–100 calculado vs CV base
+    # El rango SÍ se exige: este número se compara (>=70, >=50) y se promedia en
+    # las estadísticas. Un modelo que alucine 99999 las dejaría sin sentido.
+    match_score: int = Field(ge=0, le=100, description="Compatibilidad 0-100 vs CV base")
     gaps: List[str]                # habilidades faltantes
     highlights: List[str]          # qué enfatizar del CV
