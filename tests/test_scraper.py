@@ -200,5 +200,73 @@ def test_torre_tolera_details_en_null():
     assert oferta.description == ""
 
 
+# ── Scrapers de HTML: que el respaldo de selectores sirva de verdad ───────────
+
+def _parchar_fetch(monkeypatch, html):
+    """Hace que _fetch devuelva este HTML en vez de salir a la red."""
+    import src.scraper as scraper
+    monkeypatch.setattr(scraper, "_fetch", lambda url, session: BeautifulSoup(html, "lxml"))
+
+
+def test_occ_extrae_una_oferta_normal(monkeypatch):
+    from src.scraper import scrape_occ
+    html = """
+    <article data-id="1">
+      <h2>Ingeniero de Datos</h2>
+      <span class="company">ACME</span>
+      <span class="salary">$40,000</span>
+      <p>Buscamos alguien con Python.</p>
+      <a href="/empleo/1">Ver</a>
+    </article>"""
+    _parchar_fetch(monkeypatch, html)
+    ofertas = scrape_occ("datos")
+    assert len(ofertas) == 1
+    o = ofertas[0]
+    assert o.title == "Ingeniero de Datos"
+    assert o.company == "ACME"
+    assert o.salary == "$40,000"
+    assert o.url == "https://www.occ.com.mx/empleo/1"
+
+
+def test_occ_usa_el_selector_de_respaldo_cuando_el_primero_viene_vacio(monkeypatch):
+    """Regresión de _first: el portal deja un <h2> vacío y el título va en <h3>.
+
+    Antes se devolvía "" y, como el scraper exige `if title and href`, la oferta
+    se descartaba entera. Es justo el caso que los respaldos deberían cubrir.
+    """
+    from src.scraper import scrape_occ
+    html = """
+    <article data-id="1">
+      <h2>   </h2>
+      <h3>Ingeniero de Datos</h3>
+      <a href="/empleo/1">Ver</a>
+    </article>"""
+    _parchar_fetch(monkeypatch, html)
+    ofertas = scrape_occ("datos")
+    assert len(ofertas) == 1, "la oferta se perdía por un h2 vacío"
+    assert ofertas[0].title == "Ingeniero de Datos"
+
+
+def test_occ_devuelve_vacio_si_el_portal_cambio_el_html(monkeypatch):
+    """Sin tarjetas reconocibles no debe reventar: devuelve [] y avisa."""
+    from src.scraper import scrape_occ
+    _parchar_fetch(monkeypatch, "<div>El portal cambió por completo</div>")
+    assert scrape_occ("datos") == []
+
+
+def test_occ_descarta_tarjetas_sin_enlace(monkeypatch):
+    """Una oferta sin URL no sirve: no se puede postular ni deduplicar."""
+    from src.scraper import scrape_occ
+    html = '<article data-id="1"><h2>Sin enlace</h2></article>'
+    _parchar_fetch(monkeypatch, html)
+    assert scrape_occ("datos") == []
+
+
+def test_occ_no_revienta_si_la_peticion_falla(monkeypatch):
+    import src.scraper as scraper
+    monkeypatch.setattr(scraper, "_fetch", lambda url, session: None)
+    assert scraper.scrape_occ("datos") == []
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))
